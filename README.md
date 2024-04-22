@@ -5,6 +5,12 @@ Official implementation of **[Faceptor: A Generalist Model for Face Perception](
 
 
 Existing efforts for unified face perception mainly concentrate on representation and training. Our work focuses on unified model structure, achieving improved task extensibility and increased application efficiency by two designs of face generalist models.
+<img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/main.png" alt="Image" width="800">
+- Overall architecture for the proposed Naive Faceptor
+ <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/naive_faceptor.png" alt="Image" width="500">
+
+- Overall architecture for the proposed Faceptor
+ <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/faceptor.png" alt="Image" width="800">
 
 **<p align="justify"> Abstract:** *With the comprehensive research conducted on various face analysis tasks, there is a growing interest among researchers to develop a unified approach to face perception.
 Existing methods mainly discuss unified representation and training, which lack task extensibility and application efficiency. 
@@ -23,14 +29,34 @@ Our training framework can also be applied to auxiliary supervised learning, sig
 - With task-specific queries to deal with new-coming semantics, **Faceptor** further enhances the unification of model structure and employs significantly fewer parameters than Naive Faceptor. 
 - The proposed Faceptor demonstrates outstanding performance under both multi-task learning and auxiliary supervised learning settings.
 
-## TODOs
+## TODO
 - Release model files and inference code.
 - Release training and validation code.
 - Release data preparation process.
 
+## Dataset
+The face analysis tasks included in our experiment and the corresponding datasets used are as follows.
+<img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/dataset.png" alt="Image" width="800">
 
-## Evaluate
+## Evaluation
 Here are some test results. For detailed experimental information, please refer to our paper.
+
+- Comparison between Naive Faceptor and Faceptor-Base.
+
+  <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/compare.png" alt="Image" width="800">
+
+- Comparison with other specialized models for dense prediction tasks (facial landmark localization, face parsing).
+
+  <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/dense.png" alt="Image" width="800">
+
+- Comparison with other specialized models for attribute prediction tasks (age estimation, expression recognition, binary attribute classification).
+
+  <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/attribute.png" alt="Image" width="800">
+
+- Comparison for face recognition.
+
+  <img src="https://github.com/lxq1000/Faceptor/blob/main/pictures/identity.png" alt="Image" width="800">
+
 
 
 
