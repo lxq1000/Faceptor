@@ -67,7 +67,7 @@ bash train.sh 2 train_recog_age_biattr_affect_parsing_align train_recog_age_biat
 Replace `<start_time>` with the start time of the interrupted experiment, for example: `20231223_234836`.
 
 ### Testing
-1. Download the Faceptor model to `<your_path>/output`.
+1. Download the Faceptor models ([Google Drive](https://drive.google.com/drive/folders/1dMuoto2JFGjek74qa-6twQygQcfqLalL?usp=sharing)) to `<your_path>/output`.
 ```
 <your_path>/output
 ├── faceptor
