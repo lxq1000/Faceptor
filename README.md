@@ -1,5 +1,5 @@
 
-# Faceptor: A Generalist Model for Face Perception
+# [ECCV 2024 Accepted] Faceptor: A Generalist Model for Face Perception
 
 Official implementation of **[Faceptor: A Generalist Model for Face Perception](https://arxiv.org/abs/2403.09500)**.
 
@@ -29,10 +29,81 @@ Our training framework can also be applied to auxiliary supervised learning, sig
 - With task-specific queries to deal with new-coming semantics, **Faceptor** further enhances the unification of model structure and employs significantly fewer parameters than Naive Faceptor. 
 - The proposed Faceptor demonstrates outstanding performance under both multi-task learning and auxiliary supervised learning settings.
 
-## TODO
-- Release model files and inference code.
-- Release training and validation code.
-- Release data preparation process.
+## Instructions
+
+### Training
+1. Create the following directories under `<your_path>`:
+  - `pretrain`: For storing the downloaded FaRL pre-trained model ([FaRL-Base-Patch16-LAIONFace20M-ep64](https://github.com/FacePerceiver/FaRL)).
+  - `data`: For storing training data.
+  - `output`: For storing output after training.
+2. Update the data paths in the configuration files (YAML files).
+3. Modify `port`, `out_dir`, and `CUDA_VISIBLE_DEVICES` in the `train.sh` script according to your setup.
+4. Run the following command:
+```
+# for Faceptor-Base Stage-1
+cd ./expreiments/faceptor/stage_1
+
+bash train.sh 2 train_recog_age_biattr_affect_parsing_align
+# for Faceptor-Full Stage-1
+
+cd ./expreiments/faceptor/stage_1
+bash train.sh 4 train_recog_age_biattr_affect_parsing_align_plus
+
+# for naive-Faceptor
+cd ./expreiments/naive_faceptor
+bash train.sh 2 train_recog_age_biattr_affect_parsing_align
+
+# for Faceptor Stage-2
+cd ./expreiments/faceptor/stage_2
+bash train.sh 1 train_affect_rafdb_from_plus
+bash train.sh 1 train_age_morph2_from_plus
+bash train.sh 1 train_biattr_from_plus
+```
+5.If the training is interrupted for any reason, you can resume it using the following command:
+```
+# for Faceptor-Base Stage-1
+bash train.sh 2 train_recog_age_biattr_affect_parsing_align train_recog_age_biattr_affect_parsing_align.yaml <start_time>
+```
+Replace `<start_time>` with the start time of the interrupted experiment, for example: `20231223_234836`.
+
+### Testing
+1. Download the Faceptor model to `<your_path>/output`.
+```
+<your_path>/output
+├── faceptor
+│   ├── stage_1
+│   │   ├── train_recog_age_biattr_affect_parsing_align
+│   │   │   └── 20231223_234836
+│   │   │       └── checkpoints
+│   │   │           └── checkpoint_rank0_iter_50000.pth.tar
+│   │   └── train_recog_age_biattr_affect_parsing_align_plus
+│   │       └── 20240103_164523
+│   │           └── checkpoints
+│   │               └── checkpoint_rank0_iter_50000.pth.tar
+│   └── stage_2
+└── naive_faceptor
+    └── train_recog_age_biattr_affect_parsing_align
+        └── 20231208_230635
+            └── checkpoints
+                └── checkpoint_rank0_iter_50000.pth.tar
+```
+2. Update the `tasks.x.evaluator.use` in the configuration files (YAML files) to control whether to test the performance of the specific task.
+3. Modify `port`, `out_dir`, and `CUDA_VISIBLE_DEVICES` in the `test.sh` script according to your setup.
+4. Run the following command:
+```
+# for Faceptor-Base Stage-1
+cd ./expreiments/faceptor/stage_1
+bash test.sh 1 train_recog_age_biattr_affect_parsing_align 20231223_234836 50000
+
+# for Faceptor-Full Stage-1
+cd ./expreiments/faceptor/stage_1
+bash test.sh 1 train_recog_age_biattr_affect_parsing_align_plus 20240103_164523 50000
+
+# for naive-Faceptor
+cd ./expreiments/naive_faceptor
+bash test.sh 1 train_recog_age_biattr_affect_parsing_align 20231208_230635 50000
+```
+
 
 ## Dataset
 The face analysis tasks included in our experiment and the corresponding datasets used are as follows.
