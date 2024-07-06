@@ -1,0 +1,700 @@
+
+common:
+
+  solver:
+    type: Solver
+
+  seed: 2048
+  cuda_deterministic: False
+  fp16: True
+
+  wandb:
+    use: False
+    key: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    suffix_run_name: None
+    entity: entity
+    project: project
+    resume: False
+    notes:
+    wandb_log_all: True
+    save_artifacts: False
+
+  num_workers: 4
+  max_iter: 50000
+  gradient_acc: 1
+      
+  backbone:
+    type: FaRLVisualFeatures
+    kwargs:
+      model_type: base
+      model_path: <your_path>/pretrain/FaRL-Base-Patch16-LAIONFace20M-ep64.pth
+      drop_path_rate: 0.2
+      forced_input_resolution: 512
+
+  heads:
+    type: DecoderNewHolder
+    kwargs: 
+      task_names: ["recog_ms1mv3",
+                   "age_morph2", "age_utkface",
+                   "biattr_celeba", 
+                   "affect_affectnet", "affect_rafdb", "affect_ferplus",
+                   "parsing_celebam", parsing_lapa,
+                   "align_300w", "align_cofw", "align_wflw", "align_aflw"]
+      query_nums: [2, 
+                   101, 101,
+                   40, 
+                   7, 7, 7,
+                   19, 11, 
+                   68, 29, 98, 19]
+      interpreter_types: ["feature_v2", 
+                          "value", "value", 
+                          "value", 
+                          "value", "value", "value",
+                          "map_v2", "map_v2",
+                          "map_v2", "map_v2", "map_v2", "map_v2",
+                          ]
+      out_types: ["None", 
+                  "None", "None", 
+                  "None", 
+                  "None", "None", "None",
+                  "ParsingOutput", "ParsingOutput", 
+                  "AlignOutput", "AlignOutput", "AlignOutput", "AlignOutput"]
+      decoder_type: "TransformerDecoderLevel"
+      levels: [11]
+
+  model_entry:
+      type: aio_entry
+      kwargs:
+        size_group:
+          group_0:
+            task_types: ["recog", "age", "biattr", "affect"]
+            input_size: 112
+          group_1:
+            task_types: ["parsing", "align"]
+            input_size: 512
+
+  optimizer:
+    type: AdamW
+    kwargs:
+      weight_decay: 0.05
+
+  backbone_multiplier: 1.
+  heads_multiplier: 10.
+  interpreters_multiplier: 10.
+  decoder_multiplier: 10.
+  losses_multiplier: 10.
+
+  lr_scheduler:
+    type: 'Cosine'
+    kwargs:
+      eta_min: 0.
+      base_lr: 1.e-6
+      warmup_lr: 5.e-5
+      warmup_steps: 2000
+  lr_base: 512
+  lr_scale: False
+
+  print_interval: 10
+  save_interval: 5000
+  evaluate_interval: 2500
+
+  task_weight:
+    recog: 5.0
+    age: 5.0
+    biattr: 2.0
+    affect: 10.0
+    parsing: 200.0
+    align: 1000.0
+
+# For 4 Cards.
+tasks:
+  0:
+    name: recog_ms1mv3
+    loss_weight: 64.
+
+    dataset:
+      type: MXFaceDataset
+      kwargs:
+        data_path:  <your_path>/data/MS1MV3/
+        augmentation:
+          type: recognition_mxface_transform
+          kwargs:
+            input_size: 112
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 64
+      shuffle_strategy: 1
+
+    loss:
+      type: MarginCosineProductLoss
+      kwargs:
+        in_features: 512
+        out_features: 93431
+        scale: 64
+        margin: 0.4
+
+    evaluator:
+      type: RecogEvaluator
+      use: True
+      kwargs: 
+        mark: eval_recog
+        val_targets: ['lfw', 'cfp_fp', "agedb_30", 'calfw', 'cplfw', 'mlfw', 'lfw_m']
+        rec_prefix: <your_path>/data/verification/
+        image_size: [112, 112]
+
+  1:
+    name: age_morph2
+    loss_weight: 16.
+
+    dataset:
+      type: MORPH2Dataset_V2
+      kwargs:
+        data_path: <your_path>/data/MORPH2
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        train: True
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 16
+      shuffle_strategy: 1
+
+    loss:
+      type: AgeLoss_DLDLV2
+      kwargs: {}
+
+    evaluator:
+      type: AgeEvaluator_V2
+      use: True
+      kwargs: 
+        mark: eval_morph2_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: MORPH2Dataset_V2
+          kwargs:
+            data_path:  <your_path>/data/MORPH2
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            train: False  
+
+  2:
+    name: age_utkface
+    loss_weight: 4.
+
+    dataset:
+      type: UTKFaceDataset_V2
+      kwargs:
+        data_path: <your_path>/data/UTKFace/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        train: True
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 4
+      shuffle_strategy: 1
+
+    loss:
+      type: AgeLoss_DLDLV2
+      kwargs: {}
+
+    evaluator:
+      type: AgeEvaluator_V2
+      use: True
+      kwargs: 
+        mark: eval_utkface_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: UTKFaceDataset_V2
+          kwargs:
+            data_path:  <your_path>/data/UTKFace/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            train: False  
+
+  3:
+    name: biattr_celeba
+    loss_weight: 16.
+
+    dataset:
+      type: BiAttrDataset
+      kwargs:
+        data_path: <your_path>/data/CelebA/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        dataset_name: "CelebA"
+        split: "trainval"
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 16
+      shuffle_strategy: 1
+
+    loss:
+      type: CEL_Sigmoid
+      kwargs: {}
+
+    evaluator:
+      type: BiAttrEvaluator
+      use: True
+      kwargs: 
+        mark: eval_celeba_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: BiAttrDataset
+          kwargs:
+            data_path:  <your_path>/data/CelebA/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            dataset_name: "CelebA"
+            split: "test"   
+
+  4:
+    name: affect_affectnet
+    loss_weight: 16.
+
+    dataset:
+      type: AffectNetDataset_V2
+      kwargs:
+        data_path: <your_path>/data/AffectNet/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        train: True
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 16
+      shuffle_strategy: 1
+
+    loss:
+      type: MyCrossEntropyLoss
+      kwargs: {}
+
+    evaluator:
+      type: SingferEvaluator
+      use: True
+      kwargs: 
+        mark: eval_affect_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: AffectNetDataset_V2
+          kwargs:
+            data_path:  <your_path>/data/AffectNet/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            train: False 
+
+  5:
+    name: affect_rafdb
+    loss_weight: 4.
+
+    dataset:
+      type: RAFDBDataset
+      kwargs:
+        data_path: <your_path>/data/RAF-DB/basic/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        train: True
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 4
+      shuffle_strategy: 1
+
+    loss:
+      type: MyCrossEntropyLoss
+      kwargs: {}
+
+    evaluator:
+      type: SingferEvaluator
+      use: True
+      kwargs: 
+        mark: eval_rafdb_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: RAFDBDataset
+          kwargs:
+            data_path:  <your_path>/data/RAF-DB/basic/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            train: False 
+
+  6:
+    name: affect_ferplus
+    loss_weight: 4.
+
+    dataset:
+      type: FERPlusDataset_V2
+      kwargs:
+        data_path: <your_path>/data/FERPlus/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        train: True
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 4
+      shuffle_strategy: 1
+
+    loss:
+      type: MyCrossEntropyLoss
+      kwargs: {}
+
+    evaluator:
+      type: SingferEvaluator
+      use: True
+      kwargs: 
+        mark: eval_ferplus_test
+        test_batch_size: 32
+        test_dataset_cfg:
+          type: FERPlusDataset_V2
+          kwargs:
+            data_path:  <your_path>/data/FERPlus/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            train: False 
+
+  7:
+    name: parsing_celebam
+    loss_weight: 1.
+
+    dataset:
+      type: CelebAMaskHQDataset
+      kwargs:
+        data_path: <your_path>/data/CelebAMask-HQ/
+        augmentation:
+          type: celebam_train_transform
+          kwargs:
+            input_size: 512
+        split: train_val
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: ParsingLoss
+      kwargs: {}
+
+    evaluator:
+      type: ParsingEvaluator
+      use: True
+      kwargs: 
+        mark: eval_celebam_test
+        test_batch_size: 2
+        label_names: ['background', 'neck', 'face', 'cloth', 'rr', 
+                      'lr', 'rb', 'lb', 're', 'le', 
+                      'nose', 'imouth', 'llip', 'ulip', 'hair',
+                      'glass', 'hat', 'earr', 'neckl']
+        bg_label_name: background
+        test_dataset_cfg:
+          type: CelebAMaskHQDataset
+          kwargs:
+            data_path: <your_path>/data/CelebAMask-HQ/
+            augmentation:
+              type: celebam_test_transform
+              kwargs:
+                input_size: 512
+                warp_factor: 0.0
+            split: test
+        test_post_trans:
+          type: celebam_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.0
+        evaluate_interval: 50000
+
+  8:
+    name: parsing_lapa
+    loss_weight: 1.
+
+    dataset:
+      type: LaPaDataset
+      kwargs:
+        data_path: <your_path>/data/LaPa/
+        augmentation:
+          type: lapa_train_transform
+          kwargs:
+            input_size: 512
+        split: train_val
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: ParsingLoss
+      kwargs: {}
+
+    evaluator:
+      type: ParsingEvaluator
+      use: True
+      kwargs: 
+        mark: eval_lapa_test
+        test_batch_size: 1
+        label_names: ['background', 'face_lr_rr', 'lb', 'rb', 'le', 
+                      're', 'nose', 'ul', 'im', 'll', 
+                      'hair']
+        bg_label_name: background
+
+        test_dataset_cfg:
+          type: LaPaDataset
+          kwargs:
+            data_path: <your_path>/data/LaPa/
+            augmentation:
+              type: lapa_test_transform
+              kwargs:
+                input_size: 512
+                warp_factor: 0.8
+            split: test
+        test_post_trans:
+          type: lapa_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.8
+        evaluate_interval: 50000
+
+  9:
+    name: align_300w
+    loss_weight: 1.
+
+    dataset:
+      type: IBUG300WDataset
+      kwargs:
+        data_path: <your_path>/data/300W/
+        augmentation:
+          type: align_train_transform
+          kwargs:
+            input_size: 512
+            shift_sigma: 0.05
+            rot_sigma: 0.174
+            scale_sigma: 0.1
+            scale_mu: 0.8
+            warp_factor: 0.0
+        split: train
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: AlignLoss
+      kwargs: 
+        input_size: 512
+        heatmap_size: 128
+        heatmap_radius: 5.0
+
+    evaluator:
+      type: IBUG300WEvaluator
+      use: True
+      kwargs: 
+        mark: eval_300w_test
+        test_batch_size: 1
+        test_dataset_cfg:
+          type: IBUG300WDataset
+          kwargs:
+            data_path: <your_path>/data/300W/
+            augmentation:
+              type: align_test_transform
+              kwargs:
+                input_size: 512
+                scale_mu: 0.8
+                warp_factor: 0.0
+            split: valid_challenge # You can choose the following subsets: valid valid_challenge valid_common
+        test_post_trans:
+          type: align_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.0
+
+  10:
+    name: align_cofw
+    loss_weight: 1.
+
+    dataset:
+      type: COFWDataset
+      kwargs:
+        data_path: <your_path>/data/COFW/
+        augmentation:
+          type: align_train_transform
+          kwargs:
+            input_size: 512
+            shift_sigma: 0.05
+            rot_sigma: 0.174
+            scale_sigma: 0.1
+            scale_mu: 0.8
+            warp_factor: 0.0
+        split: train
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: AlignLoss
+      kwargs: 
+        input_size: 512
+        heatmap_size: 128
+        heatmap_radius: 5.0
+
+    evaluator:
+      type: COFWEvaluator
+      use: True
+      kwargs: 
+        mark: eval_cofw_test
+        test_batch_size: 1
+        test_dataset_cfg:
+          type: COFWDataset
+          kwargs:
+            data_path: <your_path>/data/COFW/
+            augmentation:
+              type: align_test_transform
+              kwargs:
+                input_size: 512
+                scale_mu: 0.8
+                warp_factor: 0.0
+            split: test
+        test_post_trans:
+          type: align_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.0
+
+  11:
+    name: align_wflw
+    loss_weight: 1.
+
+    dataset:
+      type: WFLWDataset
+      kwargs:
+        data_path: <your_path>/data/WFLW/
+        augmentation:
+          type: align_train_transform
+          kwargs:
+            input_size: 512
+            shift_sigma: 0.05
+            rot_sigma: 0.174
+            scale_sigma: 0.1
+            scale_mu: 0.8
+            warp_factor: 0.0
+        split: train
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: AlignLoss
+      kwargs: 
+        input_size: 512
+        heatmap_size: 128
+        heatmap_radius: 5.0
+
+    evaluator:
+      type: WFLWEvaluator
+      use: True
+      kwargs: 
+        mark: eval_wflw_test
+        test_batch_size: 1
+        test_dataset_cfg:
+          type: WFLWDataset
+          kwargs:
+            data_path: <your_path>/data/WFLW/
+            augmentation:
+              type: align_test_transform
+              kwargs:
+                input_size: 512
+                scale_mu: 0.8
+                warp_factor: 0.0
+            split: test_blur # You can choose the following subsets: test test_blur test_expression test_illumination test_largepose test_makeup test_occlusion
+        test_post_trans:
+          type: align_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.0
+
+      
+  12:
+    name: align_aflw
+    loss_weight: 1.
+
+    dataset:
+      type: AFLWDataset
+      kwargs:
+        data_path: <your_path>/data/AFLW/
+        augmentation:
+          type: align_train_transform
+          kwargs:
+            input_size: 512
+            shift_sigma: 0.05
+            rot_sigma: 0.174
+            scale_sigma: 0.1
+            scale_mu: 1.0
+            warp_factor: 0.0
+        split: train
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 1
+      shuffle_strategy: 1
+
+    loss:
+      type: AlignLoss
+      kwargs: 
+        input_size: 512
+        heatmap_size: 128
+        heatmap_radius: 5.0
+
+    evaluator:
+      type: AFLWEvaluator
+      use: True
+      kwargs: 
+        mark: eval_aflw_test
+        test_batch_size: 1
+        test_dataset_cfg:
+          type: AFLWDataset
+          kwargs:
+            data_path: <your_path>/data/AFLW/
+            augmentation:
+              type: align_test_transform
+              kwargs:
+                input_size: 512
+                scale_mu: 1.0
+                warp_factor: 0.0
+            split: test_frontal # You can choose the following subsets: test_full test_frontal
+        test_post_trans:
+          type: align_test_post_transform
+          kwargs:
+            input_size: 512
+            warp_factor: 0.0
+

@@ -1,0 +1,146 @@
+
+common:
+
+  solver:
+    type: PostSolver
+
+  seed: 2048
+  cuda_deterministic: False
+  fp16: True
+
+  wandb:
+    use: False
+    key: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+    suffix_run_name: None
+    entity: entity
+    project: project
+    resume: False
+    notes:
+    wandb_log_all: True
+    save_artifacts: False
+
+  num_workers: 4
+  max_iter: 20000
+  gradient_acc: 1
+      
+  backbone:
+    type: FaRLVisualFeatures
+    kwargs:
+      model_type: base
+      model_path: <your_path>/pretrain/FaRL-Base-Patch16-LAIONFace20M-ep64.pth
+      drop_path_rate: 0.2
+      forced_input_resolution: 512
+
+  heads:
+    type: DecoderNewHolder
+    kwargs: 
+      task_names: ["recog_ms1mv3",
+                   "age_morph2", "age_utkface",
+                   "biattr_celeba", 
+                   "affect_affectnet", "affect_rafdb", "affect_ferplus",
+                   "parsing_celebam", parsing_lapa,
+                   "align_300w", "align_cofw", "align_wflw", "align_aflw"]
+      query_nums: [2, 
+                   101, 101,
+                   40, 
+                   7, 7, 7,
+                   19, 11, 
+                   68, 29, 98, 19]
+      interpreter_types: ["feature_v2", 
+                          "value", "value", 
+                          "value", 
+                          "value", "value", "value",
+                          "map_v2", "map_v2",
+                          "map_v2", "map_v2", "map_v2", "map_v2",
+                          ]
+      out_types: ["None", 
+                  "None", "None", 
+                  "None", 
+                  "None", "None", "None",
+                  "ParsingOutput", "ParsingOutput", 
+                  "AlignOutput", "AlignOutput", "AlignOutput", "AlignOutput"]
+      decoder_type: "TransformerDecoderLevelAddLevel"
+      levels: [11]
+      new_levels: [1, 3, 5, 7, 9]
+
+  model_entry:
+      type: aio_entry
+      model_path: <your_path>/output/stage_1/train_recog_age_biattr_affect_parsing_align_plus/20240103_164523/checkpoints/checkpoint_rank0_iter_50000.pth.tar
+      trainable: ['query_embed_task_type', 'query_feat_task_type', 'losses_module', 'new_level_embed', 'new_input_proj']
+      kwargs:
+        model_path:
+        size_group:
+          group_0:
+            task_types: ["biattr"]
+            input_size: 112
+
+  optimizer:
+    type: AdamW
+    kwargs:
+      weight_decay: 0.05
+
+  backbone_multiplier: 1.
+  heads_multiplier: 10.
+  interpreters_multiplier: 10.
+  decoder_multiplier: 10.
+  losses_multiplier: 10.
+
+  lr_scheduler:
+    type: 'Cosine'
+    kwargs:
+      eta_min: 0.
+      base_lr: 1.e-6
+      warmup_lr: 5.e-5
+      warmup_steps: 2000
+  lr_base: 512
+  lr_scale: False
+
+  print_interval: 10
+  save_interval: 5000
+  evaluate_interval: 500
+
+  task_weight:
+    biattr: 5.0
+
+# For 1 Cards.
+tasks:
+  0:
+    name: biattr_celeba
+    loss_weight: 64.
+
+    dataset:
+      type: BiAttrDataset
+      kwargs:
+        data_path: <your_path>/data/CelebA/
+        augmentation:
+          type: attribute_train_transform
+          kwargs:
+            input_size: 112
+        dataset_name: "CelebA"
+        split: "trainval"
+
+    sampler:
+      type: DistributedGivenIterationSampler
+      batch_size: 64
+      shuffle_strategy: 1
+
+    loss:
+      type: CEL_Sigmoid
+      kwargs: {}
+
+    evaluator:
+      type: BiAttrEvaluator
+      use: True
+      kwargs: 
+        mark: eval_celeba_test
+        test_batch_size: 64
+        test_dataset_cfg:
+          type: BiAttrDataset
+          kwargs:
+            data_path:  <your_path>/data/CelebA/
+            augmentation:
+              type: attribute_test_transform
+              kwargs:
+                input_size: 112
+            dataset_name: "CelebA"
+            split: "test"   
