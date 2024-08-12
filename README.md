@@ -1,5 +1,5 @@
 
-# [ECCV 2024 Accepted] Faceptor: A Generalist Model for Face Perception
+# [ECCV 2024 Oral] Faceptor: A Generalist Model for Face Perception
 
 Official implementation of **[Faceptor: A Generalist Model for Face Perception](https://arxiv.org/abs/2403.09500)**.
 
